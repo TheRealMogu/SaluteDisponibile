@@ -1,6 +1,7 @@
 import { storage } from '../storage';
 import { whatsappService } from './whatsapp';
 import { emailService } from './email';
+import { scrapingService } from './scraping';
 
 export class MonitoringService {
   private isMonitoring = false;
@@ -35,26 +36,23 @@ export class MonitoringService {
 
   private async checkAvailability() {
     try {
-      console.log('Checking appointment availability...');
+      console.log('Starting comprehensive availability check...');
+      
+      // Use the new scraping service
+      await scrapingService.startScraping();
+      
+      // After scraping, check for users who need notifications
       const activeUsers = await storage.getAllActiveUsers();
       
       for (const user of activeUsers) {
-        // Simulate availability check (in real implementation, this would scrape ASL websites)
-        const hasAvailability = this.simulateAvailabilityCheck(user.asl, user.tipoVisita);
-        
-        if (hasAvailability && user.ultimaDisponibilita !== 'available') {
-          console.log(`Found availability for user ${user.id}: ${user.tipoVisita} at ${user.asl}`);
-          
-          // Send notification
+        // Check if user's availability status changed to 'available'
+        if (user.ultimaDisponibilita === 'available') {
+          // Send notification for newly available appointments
           const notificationSent = await this.sendNotification(user);
           
           if (notificationSent) {
-            // Update user's last availability status
-            await storage.updateUserAvailability(user.id, 'available');
+            console.log(`Notification sent to user ${user.id} for ${user.tipoVisita} at ${user.asl}`);
           }
-        } else if (!hasAvailability && user.ultimaDisponibilita === 'available') {
-          // Reset availability status when no longer available
-          await storage.updateUserAvailability(user.id, 'unavailable');
         }
       }
     } catch (error) {

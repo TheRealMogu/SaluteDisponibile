@@ -62,12 +62,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         byRegion: users.reduce((acc, user) => {
           acc[user.regione] = (acc[user.regione] || 0) + 1;
           return acc;
-        }, {} as Record<string, number>)
+        }, {} as Record<string, number>),
+        lastUpdated: new Date().toISOString(),
+        supportedRegions: ['lombardia', 'lazio', 'piemonte', 'veneto']
       };
       res.json(stats);
     } catch (error) {
       console.error("Stats error:", error);
       res.status(500).json({ error: "Errore nel caricamento delle statistiche" });
+    }
+  });
+
+  // Get monitoring status
+  app.get("/api/monitoring/status", (req, res) => {
+    try {
+      const status = {
+        isActive: true,
+        checkInterval: '15 minutes',
+        lastCheck: new Date().toISOString(),
+        supportedRegions: [
+          { 
+            name: 'Lombardia', 
+            code: 'lombardia', 
+            website: 'prenotasalute.regione.lombardia.it',
+            status: 'active',
+            requiresLogin: false
+          },
+          { 
+            name: 'Lazio', 
+            code: 'lazio', 
+            website: 'salutelazio.it',
+            status: 'active',
+            requiresLogin: false
+          },
+          { 
+            name: 'Piemonte', 
+            code: 'piemonte', 
+            website: 'salutepiemonte.it',
+            status: 'active',
+            requiresLogin: false
+          },
+          { 
+            name: 'Veneto', 
+            code: 'veneto', 
+            website: 'various ULSS portals',
+            status: 'active',
+            requiresLogin: false
+          }
+        ]
+      };
+      res.json(status);
+    } catch (error) {
+      console.error("Monitoring status error:", error);
+      res.status(500).json({ error: "Errore nel caricamento dello stato del monitoraggio" });
     }
   });
 

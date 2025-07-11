@@ -1,0 +1,209 @@
+Perfetto Luca! Ora ti guido step-by-step su come **procedere su Replit** per sviluppare *SaluteDisponibile.it*, partendo da un MVP che supporta le **regioni italiane più accessibili** tecnicamente, per poi espandere gradualmente.
+
+---
+
+## 🎯 **Obiettivo MVP**
+
+Un sito web che:
+
+1. Raccoglie richieste degli utenti (visita, regione, ASL, contatto)
+2. Controlla periodicamente i siti sanitari regionali pubblici per vedere se ci sono nuove disponibilità
+3. Invia una **notifica via WhatsApp o Email** quando qualcosa si libera
+
+---
+
+## ⚙️ STRUTTURA DEL PROGETTO SU REPLIT
+
+### 🧩 Stack Tecnologico
+
+| Componente       | Tecnologia consigliata                                          |
+| ---------------- | --------------------------------------------------------------- |
+| Frontend UI      | React + TailwindCSS                                             |
+| Backend API      | Python + FastAPI                                                |
+| Scraper          | Python + Playwright (o BeautifulSoup/requests per HTML statico) |
+| Database         | SQLite (o Supabase se vuoi cloud)                               |
+| Notifiche        | WhatsApp Cloud API + SMTP Email                                 |
+| Cron / Periodico | APScheduler o Replit Scheduler                                  |
+| Hosting          | Replit Full Stack Project                                       |
+
+---
+
+## 🌍 REGIONI INIZIALI FATTIBILI
+
+### ✅ Lombardia – [prenotasalute.regione.lombardia.it](https://prenotasalute.regione.lombardia.it/)
+
+* **Senza login** → scraping possibile ✅
+* Prestazioni disponibili da menù a tendina
+* Date disponibili visualizzate pubblicamente
+* Tecnica: `Playwright` per simulare interazione con il form
+
+### ✅ Lazio – [salutelazio.it](https://www.salutelazio.it/prenota)
+
+* Alcuni portali visibili senza login → scraping parziale ✅
+* Serve analisi HTML e simulazione di selezione
+* Tecnica: `requests` + `BeautifulSoup` o `Playwright`
+
+### ✅ Piemonte – [salutepiemonte.it](https://www.salutepiemonte.it/)
+
+* Prestazioni visibili, anche se parziali
+* Struttura HTML accessibile
+* Tecnica: `BeautifulSoup` o `Playwright`
+
+---
+
+## 🧪 REGIONI POSSIBILI IN FUTURO (con limitazioni)
+
+| Regione        | Stato                                    | Note                              |
+| -------------- | ---------------------------------------- | --------------------------------- |
+| Toscana        | ❌ Login SPID richiesto                   | Non accessibile senza SPID        |
+| Emilia-Romagna | ❌ Login SPID richiesto                   | Idem come sopra                   |
+| Sardegna       | 🟡 HTML misto JS, scraping difficile     | Possibile con Playwright avanzato |
+| Veneto         | 🟡 Verifica HTML e meccanismo di ricerca | Potenzialmente fattibile          |
+
+---
+
+## 🛠 GUIDA COMPLETA PER PROCEDERE SU REPLIT
+
+### 1. **Crea un nuovo progetto full stack su Replit**
+
+* Nome: `salutedisponibile`
+* Scegli **“Python (FastAPI)”** come backend
+* Aggiungi **React (vite)** per il frontend
+* Aggiungi **TailwindCSS**
+
+### 2. **Struttura le cartelle**
+
+```
+salutedisponibile/
+│
+├── backend/
+│   ├── main.py
+│   ├── database.py
+│   ├── models.py
+│   ├── scraper/
+│   │   ├── lombardia.py
+│   │   ├── lazio.py
+│   │   ├── piemonte.py
+│   ├── notify.py
+│   └── scheduler.py
+│
+├── frontend/
+│   ├── index.html
+│   └── src/
+│       ├── App.jsx
+│       ├── pages/
+│       ├── components/
+│       └── styles/
+│
+└── .replit
+```
+
+---
+
+### 3. **Implementa lo scraper regione per regione**
+
+#### Lombardia
+
+* Usa `Playwright` per simulare:
+
+  * Apertura form
+  * Selezione visita
+  * Invio ricerca
+  * Parsing risultati
+* Output: data più vicina disponibile
+
+#### Lazio / Piemonte
+
+* Se HTML è statico: `requests` + `BeautifulSoup`
+* Se HTML è dinamico (JS): `Playwright`
+
+---
+
+### 4. **Database (SQLite)**
+
+`models.py`
+
+```python
+# utenti registrati
+class User(Base):
+    id = Column(Integer, primary_key=True)
+    phone = Column(String)
+    email = Column(String)
+    canale = Column(String)  # "whatsapp" o "email"
+
+# richieste
+class Subscription(Base):
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("user.id"))
+    regione = Column(String)
+    asl = Column(String)
+    prestazione = Column(String)
+    ultima_data_notificata = Column(String)
+```
+
+---
+
+### 5. **API Endpoints (FastAPI)**
+
+```python
+@app.post("/api/registrati")
+def registrati(request: RequestData):
+    # salva nel DB
+    return {"status": "ok"}
+
+@app.get("/api/check_region")
+def check_region(regione: str):
+    # chiama il file scraper della regione
+    return {"data_disponibile": "2025-07-20"}
+```
+
+---
+
+### 6. **Schedulazione dei controlli**
+
+Usa `apscheduler` per controlli ogni 15-30 minuti:
+
+```python
+from apscheduler.schedulers.background import BackgroundScheduler
+
+def job():
+    # loop tra gli utenti → chiama scraper → invia notifica
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(job, 'interval', minutes=15)
+scheduler.start()
+```
+
+---
+
+### 7. **Notifiche WhatsApp / Email**
+
+#### WhatsApp (via Facebook Cloud API)
+
+* Crea app su [developers.facebook.com](https://developers.facebook.com/)
+* Registra numero
+* Ottieni `access_token` e `phone_id`
+* Invia messaggio se cambia disponibilità
+
+#### Email
+
+* Usa SMTP Gmail o Mailgun
+
+---
+
+### 8. **Pubblicazione su dominio personalizzato**
+
+* Compra `salutedisponibile.it` su Namecheap o Cloudflare
+* In Replit → sezione "Custom Domain" → collega il dominio con CNAME
+* Pubblica il sito
+
+---
+
+## 🎁 Vuoi che ti generi direttamente:
+
+* Il file `main.py` con FastAPI
+* Uno scraper base per Lombardia (Playwright)
+* Il database già impostato
+* Il form React di raccolta contatti?
+
+Posso farlo subito. Basta che mi dici se vuoi procedere e con quale regione partire.

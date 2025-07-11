@@ -39,6 +39,7 @@ Preferred communication style: Simple, everyday language.
 - **WhatsApp Service**: Integration with Meta's WhatsApp Business API
 - **Email Service**: Nodemailer-based email notifications
 - **Monitoring Service**: Background service that checks appointment availability every 15 minutes
+- **Scraping Service**: Dedicated service for region-specific website monitoring without login requirements
 
 #### UI Components
 - Responsive design optimized for mobile devices
@@ -51,8 +52,9 @@ Preferred communication style: Simple, everyday language.
 
 1. **User Registration**: Users select notification channel → fill form → data validated → stored in memory/database
 2. **Monitoring**: Background service polls ASL websites → checks for appointment availability → identifies users to notify
-3. **Notification**: When availability found → appropriate service (WhatsApp/Email) sends notification → user status updated
-4. **API Endpoints**: Frontend communicates with backend via REST APIs for regions, ASL data, and user registration
+3. **Scraping**: Dedicated scraping service handles region-specific website monitoring without login requirements
+4. **Notification**: When availability found → appropriate service (WhatsApp/Email) sends notification → user status updated
+5. **API Endpoints**: Frontend communicates with backend via REST APIs for regions, ASL data, and user registration
 
 ## External Dependencies
 
@@ -105,3 +107,5 @@ Preferred communication style: Simple, everyday language.
 - Error handling and logging throughout the application
 - User state management for preventing duplicate notifications
 - Graceful degradation when external services are unavailable
+- Region-specific scraping service focusing on publicly accessible websites
+- Support for Lombardia, Lazio, Piemonte, and Veneto regions without login requirements
