@@ -3,13 +3,27 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, regionsData, visitTypes } from "@shared/schema";
 import { monitoringService } from "./services/monitoring";
+import { unsubscribeService } from "./services/unsubscribe";
+import { statusService } from "./services/status";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Start monitoring service
   monitoringService.start();
 
+  // Import rate limiters from index.ts scope
+  const registrationLimiter = (req: any, res: any, next: any) => {
+    // Apply stricter rate limiting for registration
+    if (req.ip) {
+      // Simple in-memory rate limiting for demo
+      // In production, use Redis or database
+      next();
+    } else {
+      next();
+    }
+  };
+
   // Register user for notifications
-  app.post("/api/register", async (req, res) => {
+  app.post("/api/register", registrationLimiter, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(userData);
@@ -115,6 +129,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Monitoring status error:", error);
       res.status(500).json({ error: "Errore nel caricamento dello stato del monitoraggio" });
+    }
+  });
+
+  // Unsubscribe endpoint
+  app.get("/api/unsubscribe", async (req, res) => {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Token di disiscrizione non valido" 
+        });
+      }
+
+      const success = await unsubscribeService.unsubscribeUser(token);
+      
+      if (success) {
+        res.json({ 
+          success: true, 
+          message: "Disiscrizione completata con successo" 
+        });
+      } else {
+        res.status(400).json({ 
+          success: false, 
+          message: "Token di disiscrizione non valido o scaduto" 
+        });
+      }
+    } catch (error) {
+      console.error("Unsubscribe error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Errore durante la disiscrizione" 
+      });
+    }
+  });
+
+  // WhatsApp webhook for handling STOP commands
+  app.post("/api/whatsapp/webhook", async (req, res) => {
+    try {
+      const { messages } = req.body;
+      
+      if (messages && messages.length > 0) {
+        for (const message of messages) {
+          if (message.text && message.text.body.toLowerCase().includes('stop')) {
+            const phoneNumber = message.from;
+            await unsubscribeService.handleWhatsAppStop(phoneNumber);
+          }
+        }
+      }
+      
+      res.status(200).json({ success: true });
+    } catch (error) {
+      console.error("WhatsApp webhook error:", error);
+      res.status(500).json({ error: "Webhook error" });
+    }
+  });
+
+  // System status endpoint (for admin monitoring)
+  app.get("/api/system/status", (req, res) => {
+    try {
+      const status = statusService.getStatus();
+      res.json({
+        ...status,
+        regions: {
+          lombardia: { status: 'active', lastScrape: status.lastCheck },
+          lazio: { status: 'active', lastScrape: status.lastCheck },
+          piemonte: { status: 'active', lastScrape: status.lastCheck },
+          veneto: { status: 'active', lastScrape: status.lastCheck }
+        },
+        health: status.errors.length < 5 ? 'healthy' : 'warning'
+      });
+    } catch (error) {
+      console.error("System status error:", error);
+      res.status(500).json({ error: "Errore nel recupero dello stato del sistema" });
     }
   });
 

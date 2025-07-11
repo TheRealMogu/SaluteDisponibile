@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { unsubscribeService } from './unsubscribe';
 
 interface EmailMessage {
   to: string;
@@ -41,8 +42,10 @@ export class EmailService {
     }
   }
 
-  async sendAppointmentNotification(to: string, tipoVisita: string, asl: string): Promise<boolean> {
+  async sendAppointmentNotification(to: string, tipoVisita: string, asl: string, userId?: number): Promise<boolean> {
     const subject = '🏥 Posto Disponibile per la tua Visita!';
+    
+    const unsubscribeUrl = userId ? unsubscribeService.getUnsubscribeUrl(userId) : '';
     
     const text = `
 POSTO DISPONIBILE!
@@ -57,6 +60,8 @@ ATTENZIONE: I posti si esauriscono velocemente, affrettati!
 ---
 SaluteDisponibile.it
 Servizio gratuito di notifiche per visite mediche
+
+Per disiscriverti: ${unsubscribeUrl}
     `;
 
     const html = `
@@ -80,6 +85,14 @@ Servizio gratuito di notifiche per visite mediche
             Questo messaggio è stato inviato da SaluteDisponibile.it<br>
             Servizio gratuito di notifiche per visite mediche
           </p>
+          ${userId ? `
+          <div style="margin-top: 20px; padding: 15px; background: #F3F4F6; border-radius: 8px; text-align: center;">
+            <p style="margin: 0; font-size: 12px; color: #6B7280;">
+              Non vuoi più ricevere queste notifiche?<br>
+              <a href="${unsubscribeUrl}" style="color: #DC2626; text-decoration: underline;">Clicca qui per disiscriverti</a>
+            </p>
+          </div>
+          ` : ''}
         </div>
       </div>
     `;

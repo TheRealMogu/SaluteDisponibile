@@ -1,8 +1,46 @@
 import express, { type Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
+import slowDown from "express-slow-down";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Trust proxy for Replit environment
+app.set('trust proxy', 1);
+
+// Rate limiting middleware
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    error: "Troppe richieste da questo IP, riprova tra 15 minuti"
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Slow down middleware for registration endpoint
+const registrationSlowDown = slowDown({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  delayAfter: 3, // allow 3 requests per 15 minutes, then...
+  delayMs: () => 500, // begin adding 500ms of delay per request above 3
+  maxDelayMs: 5000, // maximum delay of 5 seconds
+  validate: { delayMs: false }, // disable warning
+});
+
+// Registration rate limiting (stricter)
+const registrationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 registration attempts per 15 minutes
+  message: {
+    error: "Troppe registrazioni da questo IP, riprova tra 15 minuti"
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

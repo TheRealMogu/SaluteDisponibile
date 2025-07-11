@@ -264,12 +264,16 @@ export default function RegistrationModal({ isOpen, onClose, onSuccess, channel 
                 <Checkbox required />
                 <span className="text-sm text-gray-700">
                   Accetto il trattamento dei dati personali secondo la{" "}
-                  <a href="#privacy" className="text-blue-600 hover:underline">
+                  <a href="/privacy" target="_blank" className="text-blue-600 hover:underline">
                     Privacy Policy
                   </a>{" "}
-                  e confermo di voler ricevere notifiche sui posti disponibili.
+                  e confermo di voler ricevere notifiche sui posti disponibili per le visite mediche.
                 </span>
               </div>
+              <p className="text-xs text-gray-500 mt-2 ml-7">
+                I tuoi dati saranno utilizzati esclusivamente per inviarti notifiche quando si liberano posti. 
+                Puoi disiscriverti in qualsiasi momento.
+              </p>
             </div>
 
             <Button 
