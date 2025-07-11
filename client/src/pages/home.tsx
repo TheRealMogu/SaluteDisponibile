@@ -178,9 +178,9 @@ export default function Home() {
             <Card className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <MapPin className="w-8 h-8 text-red-500 mb-4" />
-                <h3 className="text-xl font-semibold mb-3">Tutta Italia</h3>
+                <h3 className="text-xl font-semibold mb-3">Regioni Supportate</h3>
                 <p className="text-slate-600">
-                  Supportiamo tutte le regioni e le principali ASL italiane
+                  Lombardia, Lazio, Piemonte, Veneto - regioni accessibili senza login
                 </p>
               </CardContent>
             </Card>
@@ -194,6 +194,84 @@ export default function Home() {
                 </p>
               </CardContent>
             </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Supported Regions Section */}
+      <section className="py-16 bg-white">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Regioni Supportate</h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+              Monitoriamo i portali sanitari regionali pubblicamente accessibili, senza bisogno di login o SPID
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card className="text-center hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Lombardia</h3>
+                <p className="text-sm text-slate-600 mb-3">ATS Milano, Bergamo, Brescia e altre</p>
+                <div className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                  Accessibile
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Lazio</h3>
+                <p className="text-sm text-slate-600 mb-3">ASL Roma 1-6, Latina, Frosinone e altre</p>
+                <div className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                  Accessibile
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Piemonte</h3>
+                <p className="text-sm text-slate-600 mb-3">ASL Torino, Cuneo, Asti e altre</p>
+                <div className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                  Accessibile
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center hover:shadow-lg transition-shadow">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Veneto</h3>
+                <p className="text-sm text-slate-600 mb-3">ULSS 1-9, Serenissima, Scaligera e altre</p>
+                <div className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                  Accessibile
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="mt-12 text-center">
+            <div className="bg-blue-50 p-6 rounded-lg max-w-4xl mx-auto">
+              <h3 className="text-xl font-semibold text-blue-900 mb-3">Perché solo queste regioni?</h3>
+              <p className="text-blue-800 mb-4">
+                Ci concentriamo sulle regioni i cui portali sanitari sono pubblicamente accessibili senza richiedere login SPID o credenziali speciali.
+              </p>
+              <p className="text-blue-700 text-sm">
+                Stiamo lavorando per aggiungere altre regioni man mano che i loro sistemi diventano più accessibili.
+              </p>
+            </div>
           </div>
         </div>
       </section>

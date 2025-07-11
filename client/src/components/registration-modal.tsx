@@ -95,7 +95,7 @@ export default function RegistrationModal({ isOpen, onClose, onSuccess, channel 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" aria-describedby="registration-description">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             {channel === 'whatsapp' ? (
@@ -110,6 +110,9 @@ export default function RegistrationModal({ isOpen, onClose, onSuccess, channel 
               </>
             )}
           </DialogTitle>
+          <p id="registration-description" className="text-sm text-gray-600 mt-2">
+            Compila il modulo per ricevere notifiche quando si liberano posti per la tua visita medica.
+          </p>
         </DialogHeader>
 
         <Form {...form}>

@@ -11,7 +11,7 @@ interface SuccessModalProps {
 export default function SuccessModal({ isOpen, onClose, channel }: SuccessModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md text-center">
+      <DialogContent className="max-w-md text-center" aria-describedby="success-description">
         <div className="p-8">
           <div className="mb-6">
             <CheckCircle className="w-16 h-16 text-green-600 mx-auto" />
@@ -19,7 +19,7 @@ export default function SuccessModal({ isOpen, onClose, channel }: SuccessModalP
           
           <h3 className="text-2xl font-bold text-gray-900 mb-4">Notifiche Attivate!</h3>
           
-          <p className="text-lg text-slate-600 mb-6">
+          <p id="success-description" className="text-lg text-slate-600 mb-6">
             {channel === 'whatsapp' 
               ? "Perfetto! Riceverai un messaggio su WhatsApp appena si libera uno slot per la tua visita."
               : "Perfetto! Riceverai un'email appena si libera uno slot per la tua visita."
