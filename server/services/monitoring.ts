@@ -2,6 +2,7 @@ import { storage } from '../storage';
 import { whatsappService } from './whatsapp';
 import { emailService } from './email';
 import { scrapingService } from './scraping';
+import { statusService } from './status';
 
 export class MonitoringService {
   private isMonitoring = false;
@@ -37,12 +38,14 @@ export class MonitoringService {
   private async checkAvailability() {
     try {
       console.log('Starting comprehensive availability check...');
+      await statusService.logCheck();
       
       // Use the new scraping service
       await scrapingService.startScraping();
       
       // After scraping, check for users who need notifications
       const activeUsers = await storage.getAllActiveUsers();
+      await statusService.updateUserCount(activeUsers.length);
       
       for (const user of activeUsers) {
         // Check if user's availability status changed to 'available'
@@ -52,11 +55,14 @@ export class MonitoringService {
           
           if (notificationSent) {
             console.log(`Notification sent to user ${user.id} for ${user.tipoVisita} at ${user.asl}`);
+            // Reset availability to prevent repeated notifications
+            await storage.updateUserAvailability(user.id, 'notified');
           }
         }
       }
     } catch (error) {
       console.error('Error during availability check:', error);
+      await statusService.logError(error.message);
     }
   }
 
@@ -85,7 +91,8 @@ export class MonitoringService {
         return await emailService.sendAppointmentNotification(
           user.email,
           user.tipoVisita,
-          user.asl
+          user.asl,
+          user.id
         );
       }
       return false;

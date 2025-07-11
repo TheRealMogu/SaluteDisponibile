@@ -60,7 +60,9 @@ Prenota subito sul portale della tua ASL!
 ⚠️ I posti si esauriscono velocemente, affrettati!
 
 ---
-SaluteDisponibile.it`;
+SaluteDisponibile.it
+
+Per disattivare le notifiche, rispondi "STOP"`;
 
     return this.sendMessage({ to, message });
   }

@@ -8,6 +8,18 @@ SaluteDisponibile.it is a healthcare appointment notification service designed f
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### Security and GDPR Compliance Implementation (January 11, 2025)
+- **Rate Limiting**: Added express-rate-limit and express-slow-down for API protection
+- **Trust Proxy**: Configured for Replit environment to handle X-Forwarded-For headers
+- **Unsubscribe System**: Complete unsubscribe functionality with token-based links
+- **Privacy Controls**: Added privacy policy page with GDPR compliance details
+- **Consent Management**: Enhanced registration form with explicit privacy consent
+- **Status Monitoring**: Added system status tracking and admin endpoints
+- **Email Updates**: Include unsubscribe links in all notification emails
+- **WhatsApp STOP**: Handle STOP commands for WhatsApp unsubscription
+
 ## System Architecture
 
 ### Frontend Architecture
@@ -109,3 +121,12 @@ Preferred communication style: Simple, everyday language.
 - Graceful degradation when external services are unavailable
 - Region-specific scraping service focusing on publicly accessible websites
 - Support for Lombardia, Lazio, Piemonte, and Veneto regions without login requirements
+
+### Security and Privacy Features
+- Rate limiting and slow-down middleware to prevent abuse
+- Express trust proxy configuration for Replit deployment
+- Complete unsubscribe system with secure token-based links
+- GDPR-compliant privacy policy and consent management
+- System status monitoring with admin endpoints
+- Error tracking and health monitoring services
+- WhatsApp STOP command handling for unsubscription

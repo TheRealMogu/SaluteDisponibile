@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AdminDashboard from "@/components/admin-dashboard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart, Bell, Smartphone, FileText, Shield, Clock, MapPin, ThumbsUp, Globe, Users } from "lucide-react";
@@ -9,6 +10,7 @@ export default function Home() {
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [selectedChannel, setSelectedChannel] = useState<'whatsapp' | 'email'>('whatsapp');
+  const [showAdmin, setShowAdmin] = useState(false);
 
   const handleShowRegistration = (channel: 'whatsapp' | 'email') => {
     setSelectedChannel(channel);
@@ -34,6 +36,12 @@ export default function Home() {
               <a href="#home" className="text-slate-600 hover:text-blue-600 transition-colors">Home</a>
               <a href="#come-funziona" className="text-slate-600 hover:text-blue-600 transition-colors">Come Funziona</a>
               <a href="#privacy" className="text-slate-600 hover:text-blue-600 transition-colors">Privacy</a>
+              <button 
+                onClick={() => setShowAdmin(true)}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Admin
+              </button>
             </nav>
           </div>
         </div>
@@ -294,7 +302,7 @@ export default function Home() {
               <h4 className="text-lg font-semibold mb-4">Link Utili</h4>
               <ul className="space-y-2">
                 <li><a href="#come-funziona" className="text-gray-400 hover:text-white transition-colors">Come Funziona</a></li>
-                <li><a href="#privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</a></li>
+                <li><a href="/privacy" className="text-gray-400 hover:text-white transition-colors">Privacy Policy</a></li>
                 <li><a href="#termini" className="text-gray-400 hover:text-white transition-colors">Termini di Servizio</a></li>
                 <li><a href="#contatti" className="text-gray-400 hover:text-white transition-colors">Contatti</a></li>
               </ul>
@@ -337,6 +345,11 @@ export default function Home() {
         onClose={() => setIsSuccessOpen(false)}
         channel={selectedChannel}
       />
+
+      {/* Admin Dashboard */}
+      {showAdmin && (
+        <AdminDashboard />
+      )}
     </div>
   );
 }
