@@ -1,0 +1,188 @@
+Perfetto, ecco un **piano dettagliato, completo e pronto per essere sviluppato su Replit**, tenendo conto che:
+
+* Il progetto è **SaluteDisponibile.it**
+* L’utente riceve notifiche via **WhatsApp (preferito)** o **Email**
+* Target: utenti italiani, anche poco digitalizzati (boomer inclusi)
+* Deve essere **user-friendly**, semplice, accessibile
+* Lo sviluppi su **Replit** (full stack)
+
+---
+
+## 🧱 STRUTTURA COMPLETA DEL PROGETTO
+
+---
+
+### 🖼️ 1. **Design e UX/UI**
+
+#### Obiettivi
+
+* Layout pulito, minimalista
+* Accessibile anche da smartphone
+* Grandi pulsanti, pochi passaggi
+* Linguaggio amichevole e semplice
+
+#### Tech e librerie
+
+* **Frontend**: `React.js` (creato via Vite o Create React App)
+* **UI**: `TailwindCSS` (per velocità, responsività e semplicità)
+* **Icone**: `lucide-react` o `Heroicons`
+* **Componenti UI**: `shadcn/ui` (se vuoi form belli e moderni)
+
+#### Struttura pagine
+
+1. **Homepage**
+
+   * Titolo: “Ti avvisiamo quando si libera una visita medica”
+   * Descrizione: “Basta ricaricare mille volte il sito della tua ASL. Dicci dove e cosa cerchi, ti scriviamo noi su WhatsApp.”
+   * Bottoni:
+
+     * \[ Ricevi notifiche su WhatsApp ]
+     * \[ Oppure su Email ]
+2. **Form Page** (es. `/whatsapp` o modale)
+
+   * Nome (facoltativo)
+   * Numero di telefono
+   * Regione > ASL > Tipo di visita (selezioni con select dinamici)
+   * Conferma
+3. **Success Page**
+
+   * “Grazie! Riceverai un messaggio su WhatsApp appena si libera uno slot.”
+
+---
+
+### 🧠 2. **Backend & Monitoraggio**
+
+#### Linguaggio & stack
+
+* **Python 3** con:
+
+  * `FastAPI`: API performante e ben documentata
+  * `sqlite3`: database semplice locale su Replit
+  * `aiohttp`, `httpx`: per scraping asincrono
+  * `apscheduler`: per controlli periodici (es. ogni 10 minuti)
+
+#### Scraping
+
+* `requests + BeautifulSoup` o `Playwright` (JS rendering) per:
+
+  * Navigare il portale CUP pubblico della regione (es. [prenotasalute.regione.lazio.it](https://prenotasalute.regione.lazio.it/))
+  * Cercare la prestazione selezionata
+  * Verificare se esiste una **data libera**
+* Salvi lo stato attuale
+* Se cambia → **triggera la notifica**
+
+---
+
+### 📲 3. **Notifiche**
+
+#### ✅ WhatsApp (PRIORITARIO)
+
+Usi **WhatsApp Business Cloud API**:
+
+* Crea un'app Facebook Developer
+* Verifica numero e business (gratis)
+* Ottieni **Access Token** e `phone_number_id`
+
+#### Invio notifica
+
+```python
+import requests
+
+def send_whatsapp(user_phone, message):
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": user_phone,
+        "type": "text",
+        "text": {"body": message}
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    return response.status_code
+```
+
+📌 L’utente ti autorizza cliccando un link tipo:
+`https://wa.me/393123456789?text=Autorizzo%20le%20notifiche`
+
+📌 Salva il numero solo dopo che l’ha usato.
+
+#### ✅ Email (secondaria)
+
+* `smtplib` per Gmail
+* Oppure `Mailgun` (free 500 mail/die)
+* SMTP Gmail:
+
+```python
+import smtplib
+from email.mime.text import MIMEText
+
+def send_email(to, subject, body):
+    msg = MIMEText(body)
+    msg["From"] = "tuaemail@gmail.com"
+    msg["To"] = to
+    msg["Subject"] = subject
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login("tuaemail@gmail.com", "APP_PASSWORD")
+        server.send_message(msg)
+```
+
+---
+
+### 🗃️ 4. **Database (SQLite)**
+
+#### Tabelle:
+
+**users**
+\| id | nome | telefono | email | canale | timestamp |
+
+**subscriptions**
+\| id | user\_id | regione | asl | tipo\_visita | ultima\_disponibilità |
+
+---
+
+### 🌐 5. **Pubblicazione su Replit**
+
+#### Come procedere:
+
+1. **Crea progetto Full Stack** su Replit
+
+   * Frontend: `React + Vite + Tailwind`
+   * Backend: `FastAPI` in Python
+   * DB SQLite via file `.db` in root
+2. **Collega frontend e backend** tramite API interne
+
+   * `/api/register`, `/api/notify`, `/api/check`
+3. **Cron job di monitoraggio**
+
+   * Usa `apscheduler` o Replit scheduler per scraping ogni 10-15 minuti
+4. **Connetti dominio**
+
+   * Compra `salutedisponibile.it` su Namecheap o Cloudflare
+   * Punta DNS su Replit (usando IP o CNAME)
+
+---
+
+### 🔐 6. **Privacy, GDPR, sicurezza**
+
+* Salva **solo dati minimi** (es. telefono, tipo visita, ASL)
+* Nessuna registrazione, solo consenso WhatsApp/email
+* Banner cookie solo se usi strumenti analitici
+* Privacy Policy semplice (ti aiuto a scriverla)
+* Disclaimer: “Non siamo affiliati a enti pubblici o sanitari. Il servizio è informativo e gratuito.”
+
+---
+
+## ✅ PRONTI PER PARTIRE?
+
+Ti posso creare subito il progetto base su Replit con:
+
+* Interfaccia React pronta
+* Backend FastAPI avviato
+* Database già funzionante
+* Funzione WhatsApp con test
+* Primo script di scraping (dummy)
+
+Fammi sapere se vuoi che lo avvii subito, oppure se preferisci una **mappa visiva** o un **PDF** del progetto prima di iniziare.
