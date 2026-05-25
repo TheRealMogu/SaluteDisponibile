@@ -3,8 +3,5 @@
   "outputDirectory": "dist/public",
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" }
-  ],
-  "crons": [
-    { "path": "/api/cron/monitor", "schedule": "*/15 * * * *" }
   ]
 }

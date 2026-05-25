@@ -171,9 +171,23 @@ api/
 vercel.json         ← config: build, rewrites, cron ogni 15 minuti
 ```
 
-Il monitoraggio ogni 15 minuti è gestito da **Vercel Cron** (gratuito su Hobby plan) che chiama `GET /api/cron/monitor` con header `Authorization: Bearer <CRON_SECRET>`.
+Il monitoraggio ogni 15 minuti è gestito da un **cron esterno** che chiama `GET https://tuo-dominio.vercel.app/api/cron/monitor` con header `Authorization: Bearer <CRON_SECRET>`.
 
-### 4. Deploy
+> **Nota:** Vercel Hobby non supporta cron più frequenti di una volta al giorno. Usa [cron-job.org](https://cron-job.org) (gratuito) come descritto sotto.
+
+### 4. Cron esterno — cron-job.org (gratuito)
+
+Vercel Hobby non supporta cron più frequenti di una volta al giorno. Usa **[cron-job.org](https://cron-job.org)** (gratuito):
+
+1. Registrati su cron-job.org
+2. Crea un nuovo cron job con:
+   - **URL:** `https://tuo-dominio.vercel.app/api/cron/monitor`
+   - **Metodo:** `GET`
+   - **Intervallo:** ogni 15 minuti
+   - **Header personalizzato:** `Authorization: Bearer <il tuo CRON_SECRET>`
+3. Salva e attiva
+
+### 5. Deploy
 
 ```bash
 # Prima volta
