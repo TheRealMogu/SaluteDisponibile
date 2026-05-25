@@ -134,6 +134,53 @@ Il server parte su `http://localhost:5000`.
 
 ---
 
+## Deploy su Netlify (consigliato — cron gratuito ogni 15 min)
+
+Netlify supporta le Scheduled Functions con qualsiasi intervallo cron, anche sul piano gratuito.
+
+### 1. Database — Neon PostgreSQL (free tier)
+
+Stessi passaggi del deploy Vercel (vedi sotto).
+
+### 2. Variabili d'ambiente su Netlify
+
+Netlify → Site configuration → Environment variables:
+
+| Variabile | Obbligatoria | Descrizione |
+|-----------|-------------|-------------|
+| `DATABASE_URL` | Sì | Connection string Neon |
+| `EMAIL_HOST` | Per email | `smtp.gmail.com` |
+| `EMAIL_PORT` | Per email | `587` |
+| `EMAIL_USER` | Per email | Tua email Gmail |
+| `EMAIL_PASS` | Per email | App Password Gmail |
+| `EMAIL_FROM` | Per email | `noreply@salutedisponibile.it` |
+| `WHATSAPP_ACCESS_TOKEN` | Per WhatsApp | Token Meta Business API |
+| `WHATSAPP_PHONE_NUMBER_ID` | Per WhatsApp | Phone Number ID Meta |
+
+> Non serve `CRON_SECRET`: il monitoring è gestito da una Netlify Scheduled Function interna, non da un endpoint HTTP esposto.
+
+### 3. Struttura Netlify
+
+```
+netlify/functions/
+  api.ts        ← Express app wrapper (gestisce tutte le route /api/*)
+  monitor.ts    ← Scheduled Function: esegue il check ogni 15 minuti
+netlify.toml    ← config: build, redirect /api/*, SPA fallback
+```
+
+### 4. Deploy
+
+```bash
+# Installa Netlify CLI
+npm install -g netlify-cli
+
+# Login e deploy
+netlify login
+netlify deploy --prod
+```
+
+---
+
 ## Deploy su Vercel
 
 ### 1. Database — Neon PostgreSQL (free tier)
