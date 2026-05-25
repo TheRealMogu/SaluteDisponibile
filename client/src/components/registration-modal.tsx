@@ -23,6 +23,7 @@ interface RegistrationModalProps {
 export default function RegistrationModal({ isOpen, onClose, onSuccess, channel }: RegistrationModalProps) {
   const { toast } = useToast();
   const [selectedRegion, setSelectedRegion] = useState<string>("");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const form = useForm<InsertUser>({
     resolver: zodResolver(insertUserSchema),
@@ -43,20 +44,22 @@ export default function RegistrationModal({ isOpen, onClose, onSuccess, channel 
     form.clearErrors();
   }, [channel, form]);
 
+  type SelectOption = { value: string; text: string };
+
   // Fetch regions
-  const { data: regions = [] } = useQuery({
+  const { data: regions = [] } = useQuery<SelectOption[]>({
     queryKey: ['/api/regions'],
     enabled: isOpen,
   });
 
   // Fetch ASLs for selected region
-  const { data: asls = [] } = useQuery({
+  const { data: asls = [] } = useQuery<SelectOption[]>({
     queryKey: ['/api/regions', selectedRegion, 'asl'],
     enabled: !!selectedRegion,
   });
 
   // Fetch visit types
-  const { data: visitTypes = [] } = useQuery({
+  const { data: visitTypes = [] } = useQuery<SelectOption[]>({
     queryKey: ['/api/visit-types'],
     enabled: isOpen,
   });
@@ -84,7 +87,12 @@ export default function RegistrationModal({ isOpen, onClose, onSuccess, channel 
   });
 
   const onSubmit = (data: InsertUser) => {
-    registerMutation.mutate(data);
+    const processedData = { ...data };
+    if (processedData.telefono && processedData.canale === 'whatsapp') {
+      const cleaned = processedData.telefono.replace(/[\s\-().]/g, '');
+      processedData.telefono = cleaned.startsWith('+') ? cleaned : `+39${cleaned}`;
+    }
+    registerMutation.mutate(processedData);
   };
 
   const handleRegionChange = (region: string) => {
@@ -124,7 +132,7 @@ export default function RegistrationModal({ isOpen, onClose, onSuccess, channel 
                 <FormItem>
                   <FormLabel>Nome (opzionale)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Inserisci il tuo nome" {...field} />
+                    <Input placeholder="Inserisci il tuo nome" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -261,25 +269,29 @@ export default function RegistrationModal({ isOpen, onClose, onSuccess, channel 
 
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex items-start space-x-3">
-                <Checkbox required />
-                <span className="text-sm text-gray-700">
+                <Checkbox
+                  id="privacy-checkbox"
+                  checked={privacyAccepted}
+                  onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
+                />
+                <label htmlFor="privacy-checkbox" className="text-sm text-gray-700 cursor-pointer">
                   Accetto il trattamento dei dati personali secondo la{" "}
                   <a href="/privacy" target="_blank" className="text-blue-600 hover:underline">
                     Privacy Policy
                   </a>{" "}
                   e confermo di voler ricevere notifiche sui posti disponibili per le visite mediche.
-                </span>
+                </label>
               </div>
               <p className="text-xs text-gray-500 mt-2 ml-7">
-                I tuoi dati saranno utilizzati esclusivamente per inviarti notifiche quando si liberano posti. 
+                I tuoi dati saranno utilizzati esclusivamente per inviarti notifiche quando si liberano posti.
                 Puoi disiscriverti in qualsiasi momento.
               </p>
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full"
-              disabled={registerMutation.isPending}
+              disabled={registerMutation.isPending || !privacyAccepted}
             >
               {registerMutation.isPending ? (
                 "Registrazione in corso..."

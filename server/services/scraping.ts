@@ -152,19 +152,17 @@ export class ScrapingService {
   }
 
   private async processScrapingResult(user: User, result: ScrapingResult): Promise<void> {
-    const availabilityStatus = result.hasAvailability ? 'available' : 'unavailable';
-    
-    // Only notify if availability status changed
-    if (user.ultimaDisponibilita !== availabilityStatus) {
-      console.log(`Availability change detected for user ${user.id}: ${availabilityStatus}`);
-      
-      if (result.hasAvailability) {
-        // Send notification - this will be handled by the monitoring service
+    // Treat 'notified' as equivalent to 'available' to avoid re-triggering notifications
+    const wasAvailable = user.ultimaDisponibilita === 'available' || user.ultimaDisponibilita === 'notified';
+    const isAvailable = result.hasAvailability;
+
+    if (wasAvailable !== isAvailable) {
+      const newStatus = isAvailable ? 'available' : 'unavailable';
+      console.log(`Availability change for user ${user.id}: ${user.ultimaDisponibilita} → ${newStatus}`);
+      if (isAvailable) {
         console.log(`New availability found for ${user.nome || user.id}: ${user.tipoVisita} at ${user.asl}`);
       }
-      
-      // Update user's last availability status
-      await storage.updateUserAvailability(user.id, availabilityStatus);
+      await storage.updateUserAvailability(user.id, newStatus);
     }
   }
 

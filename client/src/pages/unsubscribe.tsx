@@ -16,7 +16,7 @@ export default function Unsubscribe() {
     }
   }, []);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<{ success: boolean; message?: string }>({
     queryKey: ['/api/unsubscribe', token],
     enabled: !!token,
     retry: false,

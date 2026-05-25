@@ -62,7 +62,7 @@ export class MonitoringService {
       }
     } catch (error) {
       console.error('Error during availability check:', error);
-      await statusService.logError(error.message);
+      await statusService.logError(error instanceof Error ? error.message : String(error));
     }
   }
 

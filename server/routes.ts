@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, regionsData, visitTypes } from "@shared/schema";
@@ -6,24 +6,14 @@ import { monitoringService } from "./services/monitoring";
 import { unsubscribeService } from "./services/unsubscribe";
 import { statusService } from "./services/status";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express, registrationLimiter?: RequestHandler): Promise<Server> {
   // Start monitoring service
   monitoringService.start();
 
-  // Import rate limiters from index.ts scope
-  const registrationLimiter = (req: any, res: any, next: any) => {
-    // Apply stricter rate limiting for registration
-    if (req.ip) {
-      // Simple in-memory rate limiting for demo
-      // In production, use Redis or database
-      next();
-    } else {
-      next();
-    }
-  };
+  const applyRegistrationLimit: RequestHandler = registrationLimiter ?? ((_, __, next) => next());
 
   // Register user for notifications
-  app.post("/api/register", registrationLimiter, async (req, res) => {
+  app.post("/api/register", applyRegistrationLimit, async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(userData);
