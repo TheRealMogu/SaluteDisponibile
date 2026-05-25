@@ -6,190 +6,193 @@ export interface ScrapingResult {
   earliestDate?: string;
   availableSlots?: number;
   lastChecked: Date;
+  source?: string;
+}
+
+const SCRAPER_URL = process.env.SCRAPER_API_URL;
+const SCRAPER_KEY = process.env.SCRAPER_API_KEY || '';
+
+// Chiama il microservizio Playwright su Railway
+async function callScraperService(region: string, asl: string, tipoVisita: string): Promise<ScrapingResult> {
+  if (!SCRAPER_URL) {
+    throw new Error('SCRAPER_API_URL non configurato');
+  }
+
+  const response = await fetch(`${SCRAPER_URL}/scrape`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(SCRAPER_KEY ? { 'x-api-key': SCRAPER_KEY } : {}),
+    },
+    body: JSON.stringify({ region, asl, tipoVisita }),
+    signal: AbortSignal.timeout(45_000), // 45s timeout — il browser ci mette un po'
+  });
+
+  if (!response.ok) {
+    throw new Error(`Scraper error ${response.status}: ${await response.text()}`);
+  }
+
+  const data = await response.json() as {
+    hasAvailability: boolean;
+    earliestDate?: string;
+    availableSlots?: number;
+    source?: string;
+    error?: string;
+  };
+
+  if (data.error) {
+    console.warn(`[scraping] Scraper warning for ${region}/${asl}: ${data.error}`);
+  }
+
+  return {
+    hasAvailability: data.hasAvailability,
+    earliestDate: data.earliestDate,
+    availableSlots: data.availableSlots,
+    source: data.source,
+    lastChecked: new Date(),
+  };
+}
+
+// Versione batch: chiama /scrape/batch per un gruppo di regione/asl
+async function callScraperBatch(
+  requests: Array<{ region: string; asl: string; tipoVisita: string; users: User[] }>
+): Promise<Array<{ region: string; asl: string; tipoVisita: string; result: ScrapingResult }>> {
+  if (!SCRAPER_URL) throw new Error('SCRAPER_API_URL non configurato');
+
+  const response = await fetch(`${SCRAPER_URL}/scrape/batch`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(SCRAPER_KEY ? { 'x-api-key': SCRAPER_KEY } : {}),
+    },
+    body: JSON.stringify({
+      requests: requests.map(r => ({ region: r.region, asl: r.asl, tipoVisita: r.tipoVisita })),
+    }),
+    signal: AbortSignal.timeout(120_000), // batch può richiedere fino a 2 minuti
+  });
+
+  if (!response.ok) {
+    throw new Error(`Scraper batch error ${response.status}`);
+  }
+
+  const data = await response.json() as {
+    results: Array<{
+      region: string;
+      asl: string;
+      tipoVisita: string;
+      result: { hasAvailability: boolean; earliestDate?: string; availableSlots?: number; source?: string };
+    }>;
+  };
+
+  return data.results.map(r => ({
+    region: r.region,
+    asl: r.asl,
+    tipoVisita: r.tipoVisita,
+    result: { ...r.result, lastChecked: new Date() },
+  }));
 }
 
 export class ScrapingService {
   private isRunning = false;
 
-  constructor() {}
-
   async startScraping() {
-    if (this.isRunning) {
-      console.log('Scraping already in progress');
-      return;
-    }
-
+    if (this.isRunning) return;
     this.isRunning = true;
-    console.log('Starting scraping service for healthcare appointments...');
 
     try {
       const activeUsers = await storage.getAllActiveUsers();
-      console.log(`Found ${activeUsers.length} active users to monitor`);
-
-      // Group users by region/ASL for efficient scraping
-      const usersByRegion = this.groupUsersByRegion(activeUsers);
-      
-      // Process each region
-      for (const [region, users] of Object.entries(usersByRegion)) {
-        await this.scrapeRegion(region, users);
+      if (activeUsers.length === 0) {
+        console.log('[scraping] Nessun utente attivo');
+        return;
       }
 
+      console.log(`[scraping] ${activeUsers.length} utenti attivi`);
+
+      if (!SCRAPER_URL) {
+        console.warn('[scraping] SCRAPER_API_URL non impostato — scraping saltato');
+        return;
+      }
+
+      // Raggruppa utenti per regione+ASL+visita (stessa combo = una sola chiamata)
+      const groups = this.groupUsers(activeUsers);
+      const batchRequests = Object.entries(groups).map(([key, users]) => {
+        const [region, asl, tipoVisita] = key.split('|');
+        return { region, asl, tipoVisita, users };
+      });
+
+      console.log(`[scraping] ${batchRequests.length} combinazioni uniche da scrapare`);
+
+      // Manda tutto in batch (max 20 per volta)
+      const chunkSize = 20;
+      for (let i = 0; i < batchRequests.length; i += chunkSize) {
+        const chunk = batchRequests.slice(i, i + chunkSize);
+
+        let batchResults;
+        try {
+          batchResults = await callScraperBatch(chunk);
+        } catch (err) {
+          console.error('[scraping] Batch error:', err instanceof Error ? err.message : err);
+          // Fallback: chiama uno per uno
+          batchResults = [];
+          for (const req of chunk) {
+            try {
+              const result = await callScraperService(req.region, req.asl, req.tipoVisita);
+              batchResults.push({ region: req.region, asl: req.asl, tipoVisita: req.tipoVisita, result });
+            } catch (e) {
+              console.error(`[scraping] Error ${req.region}/${req.asl}:`, e);
+            }
+          }
+        }
+
+        // Applica risultati agli utenti
+        for (const batchResult of batchResults) {
+          const key = `${batchResult.region}|${batchResult.asl}|${batchResult.tipoVisita}`;
+          const users = groups[key] || [];
+
+          console.log(
+            `[scraping] ${batchResult.region}/${batchResult.asl}/${batchResult.tipoVisita}: ` +
+            `${batchResult.result.hasAvailability ? '✓ DISPONIBILE' : '✗ non disponibile'}` +
+            (batchResult.result.earliestDate ? ` (${batchResult.result.earliestDate})` : '')
+          );
+
+          for (const user of users) {
+            await this.processResult(user, batchResult.result);
+          }
+        }
+      }
     } catch (error) {
-      console.error('Error during scraping:', error);
+      console.error('[scraping] Errore generale:', error);
     } finally {
       this.isRunning = false;
-      console.log('Scraping cycle completed');
     }
   }
 
-  private groupUsersByRegion(users: User[]): Record<string, User[]> {
+  private groupUsers(users: User[]): Record<string, User[]> {
     return users.reduce((acc, user) => {
-      const key = `${user.regione}-${user.asl}`;
-      if (!acc[key]) {
-        acc[key] = [];
-      }
+      const key = `${user.regione}|${user.asl}|${user.tipoVisita}`;
+      if (!acc[key]) acc[key] = [];
       acc[key].push(user);
       return acc;
     }, {} as Record<string, User[]>);
   }
 
-  private async scrapeRegion(regionKey: string, users: User[]): Promise<void> {
-    const [region, asl] = regionKey.split('-');
-    
-    console.log(`Scraping ${region} - ${asl} for ${users.length} users`);
-
-    try {
-      let result: ScrapingResult;
-
-      // Route to appropriate scraping method based on region
-      switch (region) {
-        case 'lombardia':
-          result = await this.scrapeLombardia(asl, users);
-          break;
-        case 'lazio':
-          result = await this.scrapeLazio(asl, users);
-          break;
-        case 'piemonte':
-          result = await this.scrapePiemonte(asl, users);
-          break;
-        case 'veneto':
-          result = await this.scrapeVeneto(asl, users);
-          break;
-        default:
-          console.log(`Scraping not implemented for region: ${region}`);
-          return;
-      }
-
-      // Process results for each user
-      for (const user of users) {
-        await this.processScrapingResult(user, result);
-      }
-
-    } catch (error) {
-      console.error(`Error scraping ${region}-${asl}:`, error);
-    }
-  }
-
-  private async scrapeLombardia(asl: string, users: User[]): Promise<ScrapingResult> {
-    // Implementation for Lombardia - prenotasalute.regione.lombardia.it
-    console.log(`Scraping Lombardia ASL: ${asl}`);
-    
-    // This would be the actual implementation using Playwright or similar
-    // For now, simulate the scraping process
-    const hasAvailability = Math.random() > 0.8; // 20% chance of availability
-    
-    return {
-      hasAvailability,
-      earliestDate: hasAvailability ? this.getSimulatedDate() : undefined,
-      availableSlots: hasAvailability ? Math.floor(Math.random() * 5) + 1 : 0,
-      lastChecked: new Date()
-    };
-  }
-
-  private async scrapeLazio(asl: string, users: User[]): Promise<ScrapingResult> {
-    // Implementation for Lazio - salutelazio.it
-    console.log(`Scraping Lazio ASL: ${asl}`);
-    
-    // Simulated scraping for now
-    const hasAvailability = Math.random() > 0.85; // 15% chance of availability
-    
-    return {
-      hasAvailability,
-      earliestDate: hasAvailability ? this.getSimulatedDate() : undefined,
-      availableSlots: hasAvailability ? Math.floor(Math.random() * 3) + 1 : 0,
-      lastChecked: new Date()
-    };
-  }
-
-  private async scrapePiemonte(asl: string, users: User[]): Promise<ScrapingResult> {
-    // Implementation for Piemonte - salutepiemonte.it
-    console.log(`Scraping Piemonte ASL: ${asl}`);
-    
-    // Simulated scraping for now
-    const hasAvailability = Math.random() > 0.82; // 18% chance of availability
-    
-    return {
-      hasAvailability,
-      earliestDate: hasAvailability ? this.getSimulatedDate() : undefined,
-      availableSlots: hasAvailability ? Math.floor(Math.random() * 4) + 1 : 0,
-      lastChecked: new Date()
-    };
-  }
-
-  private async scrapeVeneto(asl: string, users: User[]): Promise<ScrapingResult> {
-    // Implementation for Veneto - various ULSS portals
-    console.log(`Scraping Veneto ASL: ${asl}`);
-    
-    // Simulated scraping for now
-    const hasAvailability = Math.random() > 0.87; // 13% chance of availability
-    
-    return {
-      hasAvailability,
-      earliestDate: hasAvailability ? this.getSimulatedDate() : undefined,
-      availableSlots: hasAvailability ? Math.floor(Math.random() * 3) + 1 : 0,
-      lastChecked: new Date()
-    };
-  }
-
-  private async processScrapingResult(user: User, result: ScrapingResult): Promise<void> {
-    // Treat 'notified' as equivalent to 'available' to avoid re-triggering notifications
+  private async processResult(user: User, result: ScrapingResult): Promise<void> {
     const wasAvailable = user.ultimaDisponibilita === 'available' || user.ultimaDisponibilita === 'notified';
     const isAvailable = result.hasAvailability;
 
     if (wasAvailable !== isAvailable) {
       const newStatus = isAvailable ? 'available' : 'unavailable';
-      console.log(`Availability change for user ${user.id}: ${user.ultimaDisponibilita} → ${newStatus}`);
+      console.log(`[scraping] User ${user.id}: ${user.ultimaDisponibilita} → ${newStatus}`);
       if (isAvailable) {
-        console.log(`New availability found for ${user.nome || user.id}: ${user.tipoVisita} at ${user.asl}`);
+        console.log(`[scraping] Nuova disponibilità per ${user.nome || user.id}: ${user.tipoVisita} @ ${user.asl}` +
+          (result.earliestDate ? ` — prima data: ${result.earliestDate}` : ''));
       }
       await storage.updateUserAvailability(user.id, newStatus);
     }
   }
 
-  private getSimulatedDate(): string {
-    const now = new Date();
-    const futureDate = new Date(now.getTime() + Math.random() * 30 * 24 * 60 * 60 * 1000); // Next 30 days
-    return futureDate.toISOString().split('T')[0];
-  }
-
-  // Method to add real scraping implementations
-  async scrapeWebsite(url: string, selectors: any): Promise<ScrapingResult> {
-    // This would implement actual web scraping using Playwright
-    // For now, return simulated data
-    console.log(`Would scrape: ${url}`);
-    
-    return {
-      hasAvailability: Math.random() > 0.8,
-      earliestDate: this.getSimulatedDate(),
-      availableSlots: Math.floor(Math.random() * 5) + 1,
-      lastChecked: new Date()
-    };
-  }
-
-  // Helper method to validate if a region/ASL combination is supported
-  isRegionSupported(region: string, asl: string): boolean {
-    const supportedRegions = ['lombardia', 'lazio', 'piemonte', 'veneto'];
-    return supportedRegions.includes(region);
+  isRegionSupported(region: string): boolean {
+    return ['lombardia', 'lazio', 'piemonte', 'veneto'].includes(region);
   }
 }
 
