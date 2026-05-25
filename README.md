@@ -134,6 +134,57 @@ Il server parte su `http://localhost:5000`.
 
 ---
 
+## Deploy su Vercel
+
+### 1. Database — Neon PostgreSQL (free tier)
+
+1. Crea un account su [neon.tech](https://neon.tech)
+2. Crea un nuovo progetto e copia la **Connection String**
+3. In Vercel → Settings → Environment Variables aggiungi:
+   ```
+   DATABASE_URL=postgresql://...
+   ```
+4. Esegui la migrazione del schema (una volta sola, in locale con DATABASE_URL impostata):
+   ```bash
+   npm run db:push
+   ```
+
+### 2. Variabili d'ambiente su Vercel
+
+| Variabile | Obbligatoria | Descrizione |
+|-----------|-------------|-------------|
+| `DATABASE_URL` | Sì | Connection string Neon |
+| `CRON_SECRET` | Sì | Stringa casuale per proteggere `/api/cron/monitor` |
+| `EMAIL_HOST` | Per email | `smtp.gmail.com` |
+| `EMAIL_PORT` | Per email | `587` |
+| `EMAIL_USER` | Per email | Tua email Gmail |
+| `EMAIL_PASS` | Per email | App Password Gmail |
+| `EMAIL_FROM` | Per email | `noreply@salutedisponibile.it` |
+| `WHATSAPP_ACCESS_TOKEN` | Per WhatsApp | Token Meta Business API |
+| `WHATSAPP_PHONE_NUMBER_ID` | Per WhatsApp | Phone Number ID Meta |
+
+### 3. Struttura Vercel
+
+```
+api/
+  index.ts          ← handler Express per tutte le route /api/*
+vercel.json         ← config: build, rewrites, cron ogni 15 minuti
+```
+
+Il monitoraggio ogni 15 minuti è gestito da **Vercel Cron** (gratuito su Hobby plan) che chiama `GET /api/cron/monitor` con header `Authorization: Bearer <CRON_SECRET>`.
+
+### 4. Deploy
+
+```bash
+# Prima volta
+vercel
+
+# Deploy successivi
+vercel --prod
+```
+
+---
+
 ## Privacy e GDPR
 
 - I dati (email/telefono) sono usati **esclusivamente** per le notifiche

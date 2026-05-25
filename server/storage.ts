@@ -1,6 +1,7 @@
-import { type User, type InsertUser } from "@shared/schema";
+import { type User, type InsertUser, users } from "@shared/schema";
 import fs from 'fs/promises';
 import path from 'path';
+import { eq } from 'drizzle-orm';
 
 const STORAGE_FILE = path.join(process.cwd(), 'users.json');
 
@@ -12,7 +13,9 @@ export interface IStorage {
   deactivateUser(id: number): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
+// --- File-based storage (local dev, no DATABASE_URL) ---
+
+class MemStorage implements IStorage {
   private users: Map<number, User>;
   private currentId: number;
   private saveTimeout: NodeJS.Timeout | null = null;
@@ -104,4 +107,61 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// --- Drizzle/Neon storage (production with DATABASE_URL) ---
+
+class DrizzleStorage implements IStorage {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private dbInstance: any = null;
+
+  private async getDb() {
+    if (!this.dbInstance) {
+      const mod = await import('./db.js');
+      this.dbInstance = mod.db;
+    }
+    return this.dbInstance;
+  }
+
+  async getUser(id: number): Promise<User | undefined> {
+    const db = await this.getDb();
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const db = await this.getDb();
+    const [user] = await db.insert(users).values({
+      nome: insertUser.nome || null,
+      telefono: insertUser.telefono || null,
+      email: insertUser.email || null,
+      canale: insertUser.canale,
+      regione: insertUser.regione,
+      asl: insertUser.asl,
+      tipoVisita: insertUser.tipoVisita,
+      attivo: true,
+    }).returning();
+    return user;
+  }
+
+  async getAllActiveUsers(): Promise<User[]> {
+    const db = await this.getDb();
+    return db.select().from(users).where(eq(users.attivo, true));
+  }
+
+  async updateUserAvailability(id: number, availability: string): Promise<void> {
+    const db = await this.getDb();
+    await db.update(users)
+      .set({ ultimaDisponibilita: availability })
+      .where(eq(users.id, id));
+  }
+
+  async deactivateUser(id: number): Promise<void> {
+    const db = await this.getDb();
+    await db.update(users)
+      .set({ attivo: false })
+      .where(eq(users.id, id));
+  }
+}
+
+export const storage: IStorage = process.env.DATABASE_URL
+  ? new DrizzleStorage()
+  : new MemStorage();

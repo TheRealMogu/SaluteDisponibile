@@ -1,15 +1,11 @@
 import type { Express, RequestHandler } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertUserSchema, regionsData, visitTypes } from "@shared/schema";
 import { monitoringService } from "./services/monitoring";
 import { unsubscribeService } from "./services/unsubscribe";
 import { statusService } from "./services/status";
 
-export async function registerRoutes(app: Express, registrationLimiter?: RequestHandler): Promise<Server> {
-  // Start monitoring service
-  monitoringService.start();
-
+export function registerRoutes(app: Express, registrationLimiter?: RequestHandler): void {
   const applyRegistrationLimit: RequestHandler = registrationLimiter ?? ((_, __, next) => next());
 
   // Register user for notifications
@@ -17,19 +13,19 @@ export async function registerRoutes(app: Express, registrationLimiter?: Request
     try {
       const userData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(userData);
-      
+
       console.log(`New user registered: ${user.id}, channel: ${user.canale}`);
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         message: "Registrazione completata con successo",
-        userId: user.id 
+        userId: user.id
       });
     } catch (error) {
       console.error("Registration error:", error);
-      res.status(400).json({ 
-        success: false, 
-        message: "Errore nella registrazione. Controlla i dati inseriti." 
+      res.status(400).json({
+        success: false,
+        message: "Errore nella registrazione. Controlla i dati inseriti."
       });
     }
   });
@@ -55,7 +51,7 @@ export async function registerRoutes(app: Express, registrationLimiter?: Request
     res.json(visitTypes);
   });
 
-  // Get user statistics (for potential admin dashboard)
+  // Get user statistics
   app.get("/api/stats", async (req, res) => {
     try {
       const users = await storage.getAllActiveUsers();
@@ -79,80 +75,44 @@ export async function registerRoutes(app: Express, registrationLimiter?: Request
 
   // Get monitoring status
   app.get("/api/monitoring/status", (req, res) => {
-    try {
-      const status = {
-        isActive: true,
-        checkInterval: '15 minutes',
-        lastCheck: new Date().toISOString(),
-        supportedRegions: [
-          { 
-            name: 'Lombardia', 
-            code: 'lombardia', 
-            website: 'prenotasalute.regione.lombardia.it',
-            status: 'active',
-            requiresLogin: false
-          },
-          { 
-            name: 'Lazio', 
-            code: 'lazio', 
-            website: 'salutelazio.it',
-            status: 'active',
-            requiresLogin: false
-          },
-          { 
-            name: 'Piemonte', 
-            code: 'piemonte', 
-            website: 'salutepiemonte.it',
-            status: 'active',
-            requiresLogin: false
-          },
-          { 
-            name: 'Veneto', 
-            code: 'veneto', 
-            website: 'various ULSS portals',
-            status: 'active',
-            requiresLogin: false
-          }
-        ]
-      };
-      res.json(status);
-    } catch (error) {
-      console.error("Monitoring status error:", error);
-      res.status(500).json({ error: "Errore nel caricamento dello stato del monitoraggio" });
-    }
+    res.json({
+      isActive: true,
+      checkInterval: '15 minutes',
+      lastCheck: new Date().toISOString(),
+      supportedRegions: [
+        { name: 'Lombardia', code: 'lombardia', status: 'active' },
+        { name: 'Lazio', code: 'lazio', status: 'active' },
+        { name: 'Piemonte', code: 'piemonte', status: 'active' },
+        { name: 'Veneto', code: 'veneto', status: 'active' }
+      ]
+    });
   });
 
   // Unsubscribe endpoint
   app.get("/api/unsubscribe", async (req, res) => {
     try {
       const { token } = req.query;
-      
+
       if (!token || typeof token !== 'string') {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Token di disiscrizione non valido" 
+        return res.status(400).json({
+          success: false,
+          message: "Token di disiscrizione non valido"
         });
       }
 
       const success = await unsubscribeService.unsubscribeUser(token);
-      
+
       if (success) {
-        res.json({ 
-          success: true, 
-          message: "Disiscrizione completata con successo" 
-        });
+        res.json({ success: true, message: "Disiscrizione completata con successo" });
       } else {
-        res.status(400).json({ 
-          success: false, 
-          message: "Token di disiscrizione non valido o scaduto" 
+        res.status(400).json({
+          success: false,
+          message: "Token di disiscrizione non valido o scaduto"
         });
       }
     } catch (error) {
       console.error("Unsubscribe error:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Errore durante la disiscrizione" 
-      });
+      res.status(500).json({ success: false, message: "Errore durante la disiscrizione" });
     }
   });
 
@@ -160,16 +120,15 @@ export async function registerRoutes(app: Express, registrationLimiter?: Request
   app.post("/api/whatsapp/webhook", async (req, res) => {
     try {
       const { messages } = req.body;
-      
+
       if (messages && messages.length > 0) {
         for (const message of messages) {
           if (message.text && message.text.body.toLowerCase().includes('stop')) {
-            const phoneNumber = message.from;
-            await unsubscribeService.handleWhatsAppStop(phoneNumber);
+            await unsubscribeService.handleWhatsAppStop(message.from);
           }
         }
       }
-      
+
       res.status(200).json({ success: true });
     } catch (error) {
       console.error("WhatsApp webhook error:", error);
@@ -177,7 +136,7 @@ export async function registerRoutes(app: Express, registrationLimiter?: Request
     }
   });
 
-  // System status endpoint (for admin monitoring)
+  // System status endpoint
   app.get("/api/system/status", (req, res) => {
     try {
       const status = statusService.getStatus();
@@ -197,6 +156,20 @@ export async function registerRoutes(app: Express, registrationLimiter?: Request
     }
   });
 
-  const httpServer = createServer(app);
-  return httpServer;
+  // Vercel Cron endpoint — triggered every 15 minutes by vercel.json
+  // Vercel automatically adds Authorization: Bearer <CRON_SECRET>
+  app.get("/api/cron/monitor", async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && req.headers['authorization'] !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      await monitoringService.runCheck();
+      res.json({ success: true, timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error("Cron monitor error:", error);
+      res.status(500).json({ error: "Monitor check failed" });
+    }
+  });
 }

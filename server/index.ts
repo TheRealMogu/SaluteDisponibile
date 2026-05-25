@@ -1,41 +1,39 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
 import rateLimit from "express-rate-limit";
 import slowDown from "express-slow-down";
 import { registerRoutes } from "./routes";
+import { monitoringService } from "./services/monitoring";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
-// Trust proxy for Replit environment
+// Trust proxy for Replit/Vercel environment
 app.set('trust proxy', 1);
 
-// Rate limiting middleware
+// Global rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: {
-    error: "Troppe richieste da questo IP, riprova tra 15 minuti"
-  },
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: "Troppe richieste da questo IP, riprova tra 15 minuti" },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Slow down middleware for registration endpoint
+// Slow down for registration
 const registrationSlowDown = slowDown({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  delayAfter: 3, // allow 3 requests per 15 minutes, then...
-  delayMs: () => 500, // begin adding 500ms of delay per request above 3
-  maxDelayMs: 5000, // maximum delay of 5 seconds
-  validate: { delayMs: false }, // disable warning
+  windowMs: 15 * 60 * 1000,
+  delayAfter: 3,
+  delayMs: () => 500,
+  maxDelayMs: 5000,
+  validate: { delayMs: false },
 });
 
-// Registration rate limiting (stricter)
+// Strict registration rate limiting
 const registrationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 registration attempts per 15 minutes
-  message: {
-    error: "Troppe registrazioni da questo IP, riprova tra 15 minuti"
-  },
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: "Troppe registrazioni da questo IP, riprova tra 15 minuti" },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -47,7 +45,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
@@ -62,11 +60,9 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       if (logLine.length > 80) {
         logLine = logLine.slice(0, 79) + "…";
       }
-
       log(logLine);
     }
   });
@@ -75,35 +71,31 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app, registrationLimiter);
+  registerRoutes(app, registrationLimiter);
+
+  // Start background monitoring (persistent process — local dev / long-running server only)
+  // On Vercel, monitoring is triggered by the /api/cron/monitor route instead
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_MONITORING === 'true') {
+    monitoringService.start();
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  const port = parseInt(process.env.PORT || '5000', 10);
+  const httpServer = createServer(app);
+
   if (app.get("env") === "development") {
-    await setupVite(app, server);
+    await setupVite(app, httpServer);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
     log(`serving on port ${port}`);
   });
 })();

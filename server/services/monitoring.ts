@@ -35,6 +35,10 @@ export class MonitoringService {
     console.log('Monitoring stopped');
   }
 
+  async runCheck(): Promise<void> {
+    await this.checkAvailability();
+  }
+
   private async checkAvailability() {
     try {
       console.log('Starting comprehensive availability check...');
